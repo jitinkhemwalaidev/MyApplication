@@ -66,7 +66,7 @@ class FakeAuthRepository(
         }
     }
 
-    override suspend fun signInWithPasskey(): AuthResult {
+    override suspend fun signInWithPasskey(rememberMe: Boolean): AuthResult {
         // TODO(SCRUM-1): Use androidx.credentials CredentialManager.getCredential() with a
         //  GetPublicKeyCredentialOption built from the server's WebAuthn challenge, then send the
         //  assertion to the backend. Map NoCredentialException -> NoPasskey and
@@ -75,7 +75,7 @@ class FakeAuthRepository(
         return AuthResult.NoPasskey
     }
 
-    override suspend fun signInWithGoogle(): AuthResult {
+    override suspend fun signInWithGoogle(rememberMe: Boolean): AuthResult {
         // TODO(SCRUM-1): Use Credential Manager with GetGoogleIdOption (Sign in with Google), send
         //  the ID token to the backend, and return AccountLinkRequired when the backend reports an
         //  existing password account with the same email.
@@ -83,17 +83,17 @@ class FakeAuthRepository(
         return AuthResult.AccountLinkRequired(LINK_REQUIRED_EMAIL, SocialProvider.GOOGLE)
     }
 
-    override suspend fun signInWithApple(): AuthResult {
+    override suspend fun signInWithApple(rememberMe: Boolean): AuthResult {
         // TODO(SCRUM-1): Run the Sign in with Apple OAuth web flow (authorization code + PKCE in a
         //  Custom Tab, redirect back to the app) and exchange the code with the backend.
         delay(latencyMillis)
-        return AuthResult.Success(newSession(rememberMe = false))
+        return AuthResult.Success(newSession(rememberMe))
     }
 
-    override suspend fun linkSocialAccount(email: String, provider: SocialProvider): AuthResult {
+    override suspend fun linkSocialAccount(email: String, provider: SocialProvider, rememberMe: Boolean): AuthResult {
         // TODO(SCRUM-1): Call the real account-linking API.
         delay(latencyMillis)
-        return AuthResult.Success(newSession(rememberMe = false))
+        return AuthResult.Success(newSession(rememberMe))
     }
 
     private fun newSession(rememberMe: Boolean) = AuthSession(

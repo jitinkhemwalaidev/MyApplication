@@ -46,6 +46,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.autofill.ContentType
@@ -67,7 +68,6 @@ import androidx.compose.ui.semantics.contentType
 import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
@@ -101,11 +101,12 @@ fun LoginRoute(
     viewModel: LoginViewModel = viewModel(factory = LoginViewModel.Factory),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val currentOnLoginSuccess by rememberUpdatedState(onLoginSuccess)
 
     LaunchedEffect(state.isLoggedIn) {
         if (state.isLoggedIn) {
             viewModel.onLoginSuccessHandled()
-            onLoginSuccess()
+            currentOnLoginSuccess()
         }
     }
 
@@ -257,6 +258,8 @@ fun LoginScreen(
             Spacer(Modifier.height(12.dp))
             PasskeyButton(
                 isLoading = state.loadingMethod == AuthMethod.PASSKEY,
+                // Disabled while a different sign-in is running, so taps aren't silently ignored.
+                enabled = !state.isLoading || state.loadingMethod == AuthMethod.PASSKEY,
                 onClick = { if (!state.isLoading) onPasskeyClick() },
             )
 
@@ -273,6 +276,7 @@ fun LoginScreen(
                     iconRes = R.drawable.ic_google_logo,
                     tintIcon = false,
                     isLoading = state.loadingMethod == AuthMethod.GOOGLE,
+                    enabled = !state.isLoading || state.loadingMethod == AuthMethod.GOOGLE,
                     onClick = { if (!state.isLoading) onSocialClick(SocialProvider.GOOGLE) },
                     modifier = Modifier.weight(1f),
                 )
@@ -282,6 +286,7 @@ fun LoginScreen(
                     iconRes = R.drawable.ic_apple_logo,
                     tintIcon = true,
                     isLoading = state.loadingMethod == AuthMethod.APPLE,
+                    enabled = !state.isLoading || state.loadingMethod == AuthMethod.APPLE,
                     onClick = { if (!state.isLoading) onSocialClick(SocialProvider.APPLE) },
                     modifier = Modifier.weight(1f),
                 )
@@ -429,6 +434,7 @@ private fun PasswordField(
     onTogglePasswordVisibility: () -> Unit,
     onSubmit: () -> Unit,
 ) {
+    val focusManager = LocalFocusManager.current
     FieldLabel(stringResource(R.string.login_password_label))
     Spacer(Modifier.height(8.dp))
     OutlinedTextField(
@@ -469,7 +475,10 @@ private fun PasswordField(
             keyboardType = KeyboardType.Password,
             imeAction = ImeAction.Done,
         ),
-        keyboardActions = KeyboardActions(onDone = { if (state.isLoginEnabled) onSubmit() }),
+        keyboardActions = KeyboardActions(onDone = {
+            focusManager.clearFocus() // Hide the keyboard so the result (or the disabled button) is visible.
+            if (state.isLoginEnabled) onSubmit()
+        }),
         shape = FieldShape,
         colors = fieldColors(),
     )
@@ -565,11 +574,15 @@ private fun LoginButton(state: LoginUiState, onClick: () -> Unit) {
 }
 
 @Composable
-private fun PasskeyButton(isLoading: Boolean, onClick: () -> Unit) {
+private fun PasskeyButton(isLoading: Boolean, enabled: Boolean, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
+    val loadingDescription = stringResource(R.string.login_in_progress)
     Button(
         onClick = onClick,
-        modifier = Modifier.heightIn(min = MinTouchTarget),
+        enabled = enabled,
+        modifier = Modifier
+            .heightIn(min = MinTouchTarget)
+            .semantics { if (isLoading) stateDescription = loadingDescription },
         shape = PillShape,
         colors = ButtonDefaults.buttonColors(
             containerColor = colors.surfaceContainerLow,
@@ -614,17 +627,22 @@ private fun SocialButton(
     iconRes: Int,
     tintIcon: Boolean,
     isLoading: Boolean,
+    enabled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = MaterialTheme.colorScheme
+    val loadingDescription = stringResource(R.string.login_in_progress)
     Button(
         onClick = onClick,
+        enabled = enabled,
         modifier = modifier
             .heightIn(min = MinTouchTarget)
-            .clearAndSetSemantics {
+            // Replace the merged label with the description. Don't use clearAndSetSemantics here:
+            // on the Button's own modifier it also clears its click action, so TalkBack can't press it.
+            .semantics {
                 contentDescription = description
-                role = Role.Button
+                if (isLoading) stateDescription = loadingDescription
             },
         shape = FieldShape,
         colors = ButtonDefaults.buttonColors(
@@ -640,7 +658,12 @@ private fun SocialButton(
             Image(painterResource(iconRes), contentDescription = null, modifier = Modifier.size(20.dp))
         }
         Spacer(Modifier.width(12.dp))
-        Text(text = label, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.clearAndSetSemantics {}, // Read via the button's description.
+        )
     }
 }
 
@@ -669,6 +692,7 @@ private fun SignUpRow(onSignUpClick: () -> Unit) {
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Bold,
                 color = colors.primary,
+                modifier = Modifier.clearAndSetSemantics {}, // Read via the button's description.
             )
             Spacer(Modifier.width(4.dp))
             Icon(

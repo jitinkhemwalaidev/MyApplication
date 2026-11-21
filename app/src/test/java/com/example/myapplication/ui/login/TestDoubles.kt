@@ -42,32 +42,39 @@ class TestAuthRepository : AuthRepository {
     var appleCalls = 0
     val linkCalls = mutableListOf<Pair<String, SocialProvider>>()
 
+    /** rememberMe passed to every non-password call, in call order. */
+    val socialRememberMe = mutableListOf<Boolean>()
+
     override suspend fun signInWithPassword(email: String, password: String, rememberMe: Boolean): AuthResult {
         passwordCalls += PasswordCall(email, password, rememberMe)
         gate?.await()
         return passwordResult
     }
 
-    override suspend fun signInWithPasskey(): AuthResult {
+    override suspend fun signInWithPasskey(rememberMe: Boolean): AuthResult {
         passkeyCalls++
+        socialRememberMe += rememberMe
         gate?.await()
         return passkeyResult
     }
 
-    override suspend fun signInWithGoogle(): AuthResult {
+    override suspend fun signInWithGoogle(rememberMe: Boolean): AuthResult {
         googleCalls++
+        socialRememberMe += rememberMe
         gate?.await()
         return googleResult
     }
 
-    override suspend fun signInWithApple(): AuthResult {
+    override suspend fun signInWithApple(rememberMe: Boolean): AuthResult {
         appleCalls++
+        socialRememberMe += rememberMe
         gate?.await()
         return appleResult
     }
 
-    override suspend fun linkSocialAccount(email: String, provider: SocialProvider): AuthResult {
+    override suspend fun linkSocialAccount(email: String, provider: SocialProvider, rememberMe: Boolean): AuthResult {
         linkCalls += email to provider
+        socialRememberMe += rememberMe
         gate?.await()
         return linkResult
     }

@@ -47,7 +47,7 @@ class LoginViewModel(
                 email = value,
                 // Once an error is showing, clear it as soon as the input becomes valid.
                 emailError = if (it.emailError != null && !EmailValidator.isValid(value)) it.emailError else null,
-                formError = null,
+                formError = it.formError.keepIfLockedOut(),
             )
         }
     }
@@ -63,7 +63,7 @@ class LoginViewModel(
     }
 
     fun onPasswordChange(value: String) {
-        _uiState.update { it.copy(password = value, formError = null) }
+        _uiState.update { it.copy(password = value, formError = it.formError.keepIfLockedOut()) }
     }
 
     fun onTogglePasswordVisibility() {
@@ -121,6 +121,9 @@ class LoginViewModel(
         _uiState.update { it.copy(isLoggedIn = false) }
     }
 
+    // A lockout stays visible while the user types; only "Incorrect email or password" clears.
+    private fun FormError?.keepIfLockedOut(): FormError? = this as? FormError.LockedOut
+
     private fun validateEmail() {
         _uiState.update {
             val invalid = it.email.isNotBlank() && !EmailValidator.isValid(it.email)
@@ -144,12 +147,12 @@ class LoginViewModel(
         viewModelScope.launch {
             val result = when (action) {
                 AuthAction.Password -> authRepository.signInWithPassword(email, password, rememberMe)
-                AuthAction.Passkey -> authRepository.signInWithPasskey()
+                AuthAction.Passkey -> authRepository.signInWithPasskey(rememberMe)
                 is AuthAction.Social -> when (action.provider) {
-                    SocialProvider.GOOGLE -> authRepository.signInWithGoogle()
-                    SocialProvider.APPLE -> authRepository.signInWithApple()
+                    SocialProvider.GOOGLE -> authRepository.signInWithGoogle(rememberMe)
+                    SocialProvider.APPLE -> authRepository.signInWithApple(rememberMe)
                 }
-                is AuthAction.Link -> authRepository.linkSocialAccount(action.email, action.provider)
+                is AuthAction.Link -> authRepository.linkSocialAccount(action.email, action.provider, rememberMe)
             }
             handleResult(method, result)
         }

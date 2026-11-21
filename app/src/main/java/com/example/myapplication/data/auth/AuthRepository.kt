@@ -21,7 +21,9 @@ sealed interface AuthResult {
     data object InvalidCredentials : AuthResult
 
     /** A social sign-in matched an existing email account; the user must confirm linking. */
-    data class AccountLinkRequired(val email: String, val provider: SocialProvider) : AuthResult
+    data class AccountLinkRequired(val email: String, val provider: SocialProvider) : AuthResult {
+        override fun toString(): String = "AccountLinkRequired(email=<redacted>, provider=$provider)"
+    }
 
     /** The user backed out of a system sheet (passkey, Google or Apple). */
     data object Cancelled : AuthResult
@@ -41,12 +43,13 @@ interface AuthRepository {
     /** [rememberMe] selects the long-lived session length, see [AuthConfig]. */
     suspend fun signInWithPassword(email: String, password: String, rememberMe: Boolean): AuthResult
 
-    suspend fun signInWithPasskey(): AuthResult
+    // Remember me applies to every sign-in method, not just password (SCRUM-1 acceptance criteria).
+    suspend fun signInWithPasskey(rememberMe: Boolean): AuthResult
 
-    suspend fun signInWithGoogle(): AuthResult
+    suspend fun signInWithGoogle(rememberMe: Boolean): AuthResult
 
-    suspend fun signInWithApple(): AuthResult
+    suspend fun signInWithApple(rememberMe: Boolean): AuthResult
 
     /** Called after the user confirms linking on [AuthResult.AccountLinkRequired]. */
-    suspend fun linkSocialAccount(email: String, provider: SocialProvider): AuthResult
+    suspend fun linkSocialAccount(email: String, provider: SocialProvider, rememberMe: Boolean): AuthResult
 }

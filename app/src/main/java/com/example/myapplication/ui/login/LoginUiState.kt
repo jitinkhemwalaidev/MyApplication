@@ -38,7 +38,9 @@ data class UserMessage(
     val canRetry: Boolean,
 )
 
-data class PendingLink(val email: String, val provider: SocialProvider)
+data class PendingLink(val email: String, val provider: SocialProvider) {
+    override fun toString(): String = "PendingLink(email=<redacted>, provider=$provider)"
+}
 
 /**
  * Everything the login screen renders.

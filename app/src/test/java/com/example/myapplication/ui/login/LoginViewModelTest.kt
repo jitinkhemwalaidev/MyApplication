@@ -165,6 +165,51 @@ class LoginViewModelTest {
     }
 
     @Test
+    fun `typing keeps the lockout message but clears the invalid-credentials message`() = runTest {
+        repository.passwordResult = AuthResult.LockedOut(retryAfterMinutes = 5)
+        vm = createViewModel()
+        vm.fillValidForm()
+        vm.onLoginClick()
+        advanceUntilIdle()
+        vm.onPasswordChange("other")
+        assertEquals(FormError.LockedOut(5), state.formError)
+
+        repository.passwordResult = AuthResult.InvalidCredentials
+        vm.onEmailChange("someone@example.com")
+        assertEquals(FormError.LockedOut(5), state.formError)
+        vm.onLoginClick()
+        advanceUntilIdle()
+        assertEquals(FormError.InvalidCredentials, state.formError)
+        vm.onPasswordChange("again")
+        assertNull(state.formError)
+    }
+
+    @Test
+    fun `state toString does not leak the email via the pending link`() = runTest {
+        repository.googleResult = AuthResult.AccountLinkRequired("jane@example.com", SocialProvider.GOOGLE)
+        vm = createViewModel()
+        vm.onSocialClick(SocialProvider.GOOGLE)
+        advanceUntilIdle()
+        assertFalse(state.toString().contains("jane@example.com"))
+    }
+
+    @Test
+    fun `remember me is passed to passkey, social and link sign-ins`() = runTest {
+        repository.googleResult = AuthResult.AccountLinkRequired("jane@example.com", SocialProvider.GOOGLE)
+        repository.passkeyResult = AuthResult.NoPasskey
+        vm = createViewModel()
+        vm.onRememberMeChange(true)
+        vm.onPasskeyClick()
+        advanceUntilIdle()
+        vm.onSocialClick(SocialProvider.GOOGLE)
+        advanceUntilIdle()
+        vm.onConfirmLink()
+        advanceUntilIdle()
+
+        assertEquals(listOf(true, true, true), repository.socialRememberMe)
+    }
+
+    @Test
     fun `email is trimmed before sign in`() = runTest {
         vm = createViewModel()
         vm.onEmailChange("  user@example.com ")

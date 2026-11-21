@@ -39,18 +39,26 @@ class FakeAuthRepositoryTest {
 
     @Test
     fun `passkey and social outcomes are deterministic`() = runTest {
-        assertEquals(AuthResult.NoPasskey, repo.signInWithPasskey())
+        assertEquals(AuthResult.NoPasskey, repo.signInWithPasskey(rememberMe = false))
         assertEquals(
             AuthResult.AccountLinkRequired(FakeAuthRepository.LINK_REQUIRED_EMAIL, SocialProvider.GOOGLE),
-            repo.signInWithGoogle(),
+            repo.signInWithGoogle(rememberMe = false),
         )
-        assertTrue(repo.signInWithApple() is AuthResult.Success)
-        assertTrue(repo.linkSocialAccount("a@b.co", SocialProvider.GOOGLE) is AuthResult.Success)
+        assertTrue(repo.signInWithApple(rememberMe = false) is AuthResult.Success)
+        assertTrue(repo.linkSocialAccount("a@b.co", SocialProvider.GOOGLE, rememberMe = false) is AuthResult.Success)
     }
 
     @Test
     fun `session toString redacts the token`() = runTest {
-        val session = (repo.signInWithApple() as AuthResult.Success).session
+        val session = (repo.signInWithApple(rememberMe = false) as AuthResult.Success).session
         assertTrue(!session.toString().contains(session.accessToken))
+    }
+
+    @Test
+    fun `remember me sets the session length for social and link sign-ins too`() = runTest {
+        val apple = (repo.signInWithApple(rememberMe = true) as AuthResult.Success).session
+        val link = (repo.linkSocialAccount("a@b.co", SocialProvider.GOOGLE, rememberMe = false) as AuthResult.Success).session
+        assertEquals(now + config.sessionDurationMillis(true), apple.expiresAtEpochMillis)
+        assertEquals(now + config.sessionDurationMillis(false), link.expiresAtEpochMillis)
     }
 }
